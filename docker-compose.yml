@@ -1,3 +1,7 @@
+networks:
+    stacknet:
+      name: ${COMPOSE_PROJECT_NAME:-templatenet}
+
 services:
 
     ####################################################################################################
@@ -5,10 +9,14 @@ services:
     ####################################################################################################
     php:
         build: .docker/php
+        container_name: app
+        image: php83-node-local
         ports:
-            - 5173:5173
+            - ${VITE_PORT:-5173}:5173
         volumes:
             - .:/var/www:cached
+        networks:
+          - stacknet
 
     ####################################################################################################
     # Nginx
@@ -16,14 +24,15 @@ services:
     nginx:
         image: nginx
         ports:
-            - 80:80
+            - ${APP_PORT:-80}:80
         volumes:
             - .:/var/www
             - .docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
             - .docker/nginx/nginx.conf:/etc/nginx/nginx.conf
         depends_on:
             - php
-
+        networks:
+            - stacknet
     ####################################################################################################
     # DATABASE (MySQL)
     ####################################################################################################
@@ -41,6 +50,8 @@ services:
 #            MYSQL_DATABASE: refactorian
 #            MYSQL_USER: refactorian
 #            MYSQL_PASSWORD: refactorian
+#        networks:
+#            - ${COMPOSE_PROJECT_NAME:-templatenet}
 
     ####################################################################################################
     # phpMyAdmin
@@ -51,6 +62,8 @@ services:
 #            - 8080:80
 #        links:
 #            - db
+#        networks:
+#            - stacknet
 #        environment:
 #            PMA_HOST: db
 #            PMA_PORT: 3306
@@ -64,9 +77,11 @@ services:
     adminer:
         image: adminer
         ports:
-            - 9090:8080
+          - ${ADMINER_PORT:-9090}:8080
         depends_on:
-        - db
+          - db
+        networks:
+          - stacknet
 
     ####################################################################################################
     # Mailpit
@@ -74,8 +89,10 @@ services:
     mail:
         image: axllent/mailpit:latest
         ports:
-        - 8025:8025
-        - 1025:1025
+          - ${MAILPIT_PORT:-8025}:8025
+#        - 1025:1025
+        networks:
+          - stacknet
 
     ####################################################################################################
     # Redis
@@ -84,9 +101,11 @@ services:
         image: redis:latest
         command: redis-server --appendonly yes
         volumes:
-        - .docker/redis/data:/data
+          - .docker/redis/data:/data
         ports:
-        - 6379:6379
+          - ${REDIS_PORT:-6379}:6379
+        networks:
+          - stacknet
 
     # ####################################################################################################
     # # DATABASE (MariaDB)
@@ -110,7 +129,7 @@ services:
     # PostgreSQL
     ####################################################################################################
     db:
-        image: 'postgres:16-alpine'
+        image: 'postgres:17-alpine'
         ports:
             - '${FORWARD_DB_PORT:-5432}:5432'
         environment:
@@ -123,16 +142,19 @@ services:
         volumes:
             - .docker/db/data:/var/lib/postgresql/data
             - .docker/db/sql:/docker-entrypoint-initdb.d
-
+        networks:
+          - stacknet
     ####################################################################################################
     # pgAdmin
     ####################################################################################################
     pgadmin:
         image: dpage/pgadmin4
         ports:
-            - ${FORWARD_DB_ADMIN_PORT:-5050}:80
+            - ${FORWARD_PGADMIN_PORT:-5050}:80
         environment:
             - PGADMIN_DEFAULT_EMAIL=admin@admin.com
             - PGADMIN_DEFAULT_PASSWORD=password
         depends_on:
             - db
+        networks:
+            - stacknet
